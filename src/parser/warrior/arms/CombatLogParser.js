@@ -20,6 +20,7 @@ import Slam from './modules/core/Slam';
 import Rend from './modules/core/Execute/Rend';
 import MortalStrike from './modules/core/Execute/MortalStrike';
 import ExecuteRange from './modules/core/Execute/ExecuteRange';
+import ExecuteOptimize from './modules/core/Execute/ExecuteOptimize';
 // Dots
 import DeepWoundsUptime from './modules/core/Dots/DeepWoundsUptime';
 import RendUptime from './modules/core/Dots/RendUptime';
@@ -77,6 +78,7 @@ class CombatLogParser extends CoreCombatLogParser {
     executeRange: ExecuteRange,
     rend: Rend,
     mortalStrike: MortalStrike,
+    executeOptimize: ExecuteOptimize,
 
     // Dots
     deepWoundsUptime: DeepWoundsUptime,
