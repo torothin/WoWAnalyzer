@@ -1,10 +1,16 @@
 import React from 'react';
 import Analyzer, { SELECTED_PLAYER } from 'parser/core/Analyzer';
-import { formatPercentage } from 'common/format';
+//import { formatPercentage } from 'common/format';
 import SPELLS from 'common/SPELLS';
 import SpellLink from 'common/SpellLink';
+import SpellIcon from 'common/SpellIcon';
+import StatisticBox from 'interface/others/StatisticBox';
+import StatisticsListBox, { STATISTIC_ORDER } from 'interface/others/StatisticsListBox';
+import BoringSpellValueText from 'interface/statistics/components/BoringSpellValueText';
+import StatisticListBoxItem from 'interface/others/StatisticListBoxItem';
+import { formatPercentage } from 'common/format';
 import Abilities from 'parser/core/modules/Abilities';
-import calculateMaxCasts from 'parser/core/calculateMaxCasts';
+//import calculateMaxCasts from 'parser/core/calculateMaxCasts';
 import Events from 'parser/core/Events';
 import ExecuteRange from './ExecuteRange';
 
@@ -27,7 +33,6 @@ class ExecuteOptimize extends Analyzer {
   }
 
   _onCast(event) {
-    //this.events.push(event);
     if(this.executeRange.isTargetInExecuteRange(event) && event.ability.guid === SPELLS.MORTAL_STRIKE.id) {
       this.events.push(event);
       this.mortalStrikesCasts++;
@@ -95,9 +100,61 @@ class ExecuteOptimize extends Analyzer {
 //     });
 //   }
 
+  statisticsBoxValue = () => {
+    return(
+      <StatisticsListBox
+        title={<><SpellIcon id={SPELLS.EXECUTE.id} /> Unused Executes </>}
+        position={STATISTIC_ORDER.CORE(3)}
+        tooltip={<>
+          <SpellLink id={SPELLS.EXECUTE.id} />
+          <strong> needs to be prioritized over</strong> <br />
+          <SpellLink id={SPELLS.MORTAL_STRIKE.id} /> {", "}
+          <SpellLink id={SPELLS.SLAM.id} /> {", and "}
+          <SpellLink id={SPELLS.WHIRLWIND.id} />
+        </>}
+      >
+        <StatisticListBoxItem
+          title={<><SpellLink id={SPELLS.MORTAL_STRIKE.id} /> casts</>}
+          value={`${this.mortalStrikesCasts} `}
+        />
+        <StatisticListBoxItem
+          title={<><SpellLink id={SPELLS.SLAM.id} /> casts</>}
+          value={`${this.slamsCasts} `}
+        />
+        <StatisticListBoxItem
+          title={<><SpellLink id={SPELLS.WHIRLWIND.id} /> casts</>}
+          value={`${this.whirlwindCasts} `}
+        />
+      </StatisticsListBox>);
+  }
+
   statistic() {
-    console.log(this.events, this.slamsCasts, this.mortalStrikesCasts, this.whirlwindCasts);
-    return;
+    return (
+      <StatisticsListBox
+        title={<><SpellIcon id={SPELLS.EXECUTE.id} /> Unused Executes </>}
+        position={STATISTIC_ORDER.CORE(3)}
+        tooltip={<>
+          <SpellLink id={SPELLS.EXECUTE.id} />
+          <strong> needs to be prioritized over</strong> <br />
+          <SpellLink id={SPELLS.MORTAL_STRIKE.id} /> ", "
+          <SpellLink id={SPELLS.SLAM.id} /> ", and "
+          <SpellLink id={SPELLS.WHIRLWIND.id} />
+        </>}
+      >
+        <StatisticListBoxItem
+          title={<><SpellLink id={SPELLS.MORTAL_STRIKE.id} /> casts</>}
+          value={`${this.mortalStrikesCasts} `}
+        />
+        <StatisticListBoxItem
+          title={<><SpellLink id={SPELLS.SLAM.id} /> casts</>}
+          value={`${this.slamsCasts} `}
+        />
+        <StatisticListBoxItem
+          title={<><SpellLink id={SPELLS.WHIRLWIND.id} /> casts</>}
+          value={`${this.whirlwindCasts} `}
+        />
+      </StatisticsListBox>
+    );
   }
 
 }
