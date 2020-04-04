@@ -8,6 +8,8 @@ import StatisticsListBox from 'interface/others/StatisticsListBox';
 import StatisticListBoxItem from 'interface/others/StatisticListBoxItem';
 import Abilities from 'parser/core/modules/Abilities';
 import Events from 'parser/core/Events';
+import DamageDone from 'parser/shared/modules/throughput/DamageDone';
+import HIT_TYPES from 'game/HIT_TYPES';
 
 import ExecuteRange from './ExecuteRange';
 
@@ -30,22 +32,46 @@ class ExecuteOptimize extends Analyzer {
   static dependencies = {
     abilities: Abilities,
     executeRange: ExecuteRange,
+    damageDone: DamageDone,
   };
 
   hasFevorOfBattle = this.selectedCombatant.hasTalent(SPELLS.FERVOR_OF_BATTLE_TALENT);
-  mortalStrikesCastsDuringExecute = 0;
-  slamsCastsDuringExecute = 0;
-  whirlwindCastsDuringExecute = 0;
-  whirlwindCastsDuringExecuteCrushingAssault = 0;
-  mortalStrikesCastsTotal = 0;
-  slamsCastsTotal = 0;
-  whirlwindCastsTotal = 0;
+  hasCrushingAssault = this.selectedCombatant.hasTrait(SPELLS.CRUSHING_ASSAULT_TRAIT.id);
+  
   eventArray = [];
-  mortalStrikeDamage = 0;
-  whirlwindDamage = 0;
-  slamDamage = 0;
-  executeCasts = 0;
-  executeDamage = 0;
+
+  castsDuringExecute = {
+    mortalStrike: 0,
+    mortalStrikeHits: 0,
+    slam: 0,
+    slamHits: 0,
+    whirlwind: 0,
+    whirlwindHits: 0,
+    whirlwindCrushingAssault: 0,
+    whirlwindCrushingAssaultHits: 0,
+  }
+
+  castTotals = {
+    mortalStrike: 0,
+    slam: 0,
+    whirlwind: 0,
+    execute: 0,
+  }
+
+  damage = {
+    mortalStrike: 0,
+    slam: 0,
+    whirlwind: 0,
+    execute: 0,
+  }
+
+  damageEvents = {
+    mortalStrike: 0,
+    slam: 0,
+    whirlwind: 0,
+    execute: 0,
+  }
+  
   executeRage = 0;
 
   constructor(...args) {
@@ -60,102 +86,157 @@ class ExecuteOptimize extends Analyzer {
     this.addEventListener(Events.cast.by(SELECTED_PLAYER).spell(SPELLS.EXECUTE), this._onExecuteCast);
     this.addEventListener(Events.cast.by(SELECTED_PLAYER).spell(SPELLS.EXECUTE_GLYPHED), this._onExecuteCast);
     this.addEventListener(Events.damage.by(SELECTED_PLAYER).spell(SPELLS.EXECUTE_DAMAGE), this._onExecuteDamage);
-    this.addEventListener(Events.damage.by(SELECTED_PLAYER).spell(SPELLS.SWEEPING_STRIKES_EXECUTE), this._onSweepingStrikesExecuteDamage);
+    this.addEventListener(Events.damage.by(SELECTED_PLAYER).spell(SPELLS.EXECUTE_GLYPHED), this._onExecuteDamage);
+    //this.addEventListener(Events.damage.by(SELECTED_PLAYER).spell(SPELLS.SWEEPING_STRIKES_EXECUTE), this._onSweepingStrikesExecuteDamage);
     
+  }
+
+  _addEvent(event) {
+    this.eventArray.push(event);
   }
   
   _onExecuteCast(event) {
-    //this.eventArray.push(event);
-    //this.eventArray.push(event.classResources[0].cost/10*.8);
     this.executeRage += event.classResources[0].cost/10*.8;
-    this.executeCasts++;
+    this.castTotals.execute++;
   }
+
   _onExecuteDamage(event) {
-    this.eventArray.push(event);
-    this.executeDamage += event.amount;
+    //this.eventArray.push(event);
+      
+    if(event.hitType === HIT_TYPES.NORMAL || event.hitType === HIT_TYPES.CRIT) {
+      this.damage.execute += event.amount;
+      this.damageEvents.execute++;
+      return;
+    }
+    if(event.hitType === HIT_TYPES.ABSORB) {
+      this.damage.execute += event.absorbed;
+      this.damageEvents.execute++;
+      return;
+    }
   }
   _onSweepingStrikesExecuteDamage(event) {
-    //this.eventArray.push("SS execute damage");
-    this.executeDamage += event.amount;
+    this._onExecuteDamage(event);
   }
 
   _onMortalStrikeDamage(event) {
-    this.eventArray.push(event);
-    this.mortalStrikeDamage += event.amount;
+    if(this.executeRange.isTargetInExecuteRange(event)) {
+      this.castsDuringExecute.mortalStrikeHits++;
+      this._addEvent(event);
+    }
+    if(event.hitType === HIT_TYPES.NORMAL || event.hitType === HIT_TYPES.CRIT) {
+      this.damage.mortalStrike += event.amount;
+      this.damageEvents.mortalStrike++;
+      return;
+    }
+    if(event.hitType === HIT_TYPES.ABSORB) {
+      this.damage.mortalStrike += event.absorbed;
+      this.damageEvents.mortalStrike++;
+      return;
+    }
+    
   }
 
   _onSlamDamage(event) {
-    //this.eventArray.push(event);
-    this.slamDamage += event.amount;
+    if(this.executeRange.isTargetInExecuteRange(event)) {
+      this.castsDuringExecute.slamHits++;
+      this._addEvent(event);
+    }
+    if(event.hitType === HIT_TYPES.NORMAL || event.hitType === HIT_TYPES.CRIT) {
+      this.damage.slam += event.amount;
+      this.damageEvents.slam++;
+      return;
+    }
+    if(event.hitType === HIT_TYPES.ABSORB) {
+      this.damage.slam += event.absorbed;
+      this.damageEvents.slam++;
+      return;
+    }
   }
 
   _onWhirlWindDamage(event) {
-    //this.eventArray.push(event);
-    this.whirlwindDamage += event.amount;
+    if(this.executeRange.isTargetInExecuteRange(event)) {
+      this.castsDuringExecute.whirlwindHits++;
+      this._addEvent(event);
+    }
+    if(event.hitType === HIT_TYPES.NORMAL || event.hitType === HIT_TYPES.CRIT) {
+      this.damage.whirlwind += event.amount;
+      this.damageEvents.whirlwind++;
+      return;
+    }
+    if(event.hitType === HIT_TYPES.ABSORB) {
+      this.damage.whirlwind += event.absorbed;
+      this.damageEvents.whirlwind++;
+      return;
+    }
   }
 
   _onMortalStrikeCast(event) {
-    this.mortalStrikesCastsTotal++;
-    //this.eventArray.push(event);
     if(!this.executeRange.isTargetInExecuteRange(event)) {
       return;
     }
-    //this.eventArray.push(event);
-    this.mortalStrikesCastsDuringExecute++;
+    this.castsDuringExecute.mortalStrike++;
     event.meta = event.meta || {};
     event.meta.isInefficientCast = true;
     event.meta.inefficientCastReason = 'This Mortal Strike was used on a target in Execute range.';
+    this._addEvent(event);
     return;
   }
 
   _onSlamCast(event) {
-    this.slamsCastsTotal++;
-    if(this.selectedCombatant.hasBuff(SPELLS.CRUSHING_ASSAULT_BUFF.id, event.timestamp)) {
-      this.eventArray.push(event);
-    }
-    if(!this.executeRange.isTargetInExecuteRange(event) || this.hasFevorOfBattle) {
+    // this.castTotals.slam++;
+    const hasCrushingAssaultBuff = this.selectedCombatant.hasBuff(SPELLS.CRUSHING_ASSAULT_BUFF.id, event.timestamp);
+
+    if(!this.executeRange.isTargetInExecuteRange(event)) { // || this.hasFevorOfBattle
       return;
     } 
-    // free slam casts due to crushing assault buff do not count against casts during execute
+    // free slam casts due to crushing assault buff does not count against casts during execute
     // will need to remove the check for crushing assault when azerite traits go away
-    if(!this.selectedCombatant.hasBuff(SPELLS.CRUSHING_ASSAULT_BUFF.id, event.timestamp)) {
-      this.slamsCastsDuringExecute++;
+    if(hasCrushingAssaultBuff) {
+      this._addEvent(event);
+    }
+
+    // full rage cost slam
+    if(!hasCrushingAssaultBuff) {
+      this.castsDuringExecute.slam++;
       event.meta = event.meta || {};
       event.meta.isInefficientCast = true;
       event.meta.inefficientCastReason = 'This Slam was used on a target in Execute range.';
+      this._addEvent(event);
       return;
     }
   }
 
   _onWhirlWindCast(event) {
-    this.whirlwindCastsTotal++;
-    //this.eventArray.push(event);
-    if(this.selectedCombatant.hasBuff(SPELLS.CRUSHING_ASSAULT_BUFF.id, event.timestamp)) {
-      this.eventArray.push(event);
-    }
+    const hasCrushingAssaultBuff = this.selectedCombatant.hasBuff(SPELLS.CRUSHING_ASSAULT_BUFF.id, event.timestamp);
+
     if(!this.executeRange.isTargetInExecuteRange(event)) {
       return;
     }
-    if(this.executeRange.isTargetInExecuteRange(event) && 
-        this.selectedCombatant.hasBuff(SPELLS.CRUSHING_ASSAULT_BUFF.id, event.timestamp)) {
-      this.whirlwindCastsDuringExecuteCrushingAssault++;
+
+    // reduced rage cost WW during execute
+    if(this.executeRange.isTargetInExecuteRange(event) && hasCrushingAssaultBuff) {
+      this.castsDuringExecute.whirlwindCrushingAssault++;
       event.meta = event.meta || {};
       event.meta.isInefficientCast = true;
-      event.meta.inefficientCastReason = 'This Whirlwind was used on a target in Execute range.';
+      event.meta.inefficientCastReason = 'This Whirlwind(Crushing Assault) was used on a target in Execute range.';
+      this._addEvent(event);
       return;
     }
-    this.whirlwindCastsDuringExecute++;
+
+    // full rage cost WW during execute
+    this.castsDuringExecute.whirlwind++;
     event.meta = event.meta || {};
     event.meta.isInefficientCast = true;
     event.meta.inefficientCastReason = 'This Whirlwind was used on a target in Execute range.';
-    return;
+    this._addEvent(event);
   }
 
   // this function calculates how many executes would be gained if MS/WW/Slam were not casted 
-  // during execute based on rage usage
+  // during execute based on rage usage.  Casts are used because casts use rage regardless of doing
+  // damage or not and is still wasted
   //
   // assumes: 
-  // execute costs 16 rage
+  // execute costs X amount rage based on an average usage over the fight
   // MS costs 30 rage
   // WW costs 30 rage
   // WW with Crushing Assault costs 10 rage
@@ -163,17 +244,18 @@ class ExecuteOptimize extends Analyzer {
   // does not factor in the amount of time for casting executes vs other rage burners
 
   _unusedExecutes() {
-    const avgRagePerExecute = this.executeRage / this.executeCasts;
-    const executes = 1/avgRagePerExecute * ( 30 * this.mortalStrikesCastsDuringExecute
-                            + 30 * this.whirlwindCastsDuringExecute
-                            + 10 * this.whirlwindCastsDuringExecuteCrushingAssault
-                            + 20 * this.slamsCastsDuringExecute);
+    const avgRagePerExecute = this.executeRage / this.castTotals.execute;
+    const { mortalStrike,whirlwind,whirlwindCrushingAssault,slam } = this.castsDuringExecute;
+    const executes = 1/avgRagePerExecute * ( 30 * mortalStrike
+                            + 30 * whirlwind
+                            + 10 * whirlwindCrushingAssault
+                            + 20 * slam);
       
-      console.log(executes);
+      //console.log("_unusedExecutes",this.castsDuringExecute,executes,avgRagePerExecute);
       return executes;
   }
 
-  // calculates damage per cast for MS, WW, Slam, Execute
+  // calculates averaged damage per cast for MS, WW, Slam, Execute
   // return an object containing damage per casts
   _damagePerCast() {
     const damagePerCastObject = {
@@ -183,44 +265,53 @@ class ExecuteOptimize extends Analyzer {
       execute: 0,
     };
 
-    if(this.mortalStrikesCastsTotal > 0) {
-      damagePerCastObject.mortalStrike = this.mortalStrikeDamage/this.mortalStrikesCastsTotal;
+    if(this.castTotals.mortalStrike > 0) {
+      damagePerCastObject.mortalStrike = this.damage.mortalStrike/this.damageEvents.mortalStrike;
     }
-    if(this.slamsCastsTotal > 0) {
-      damagePerCastObject.slam = this.slamDamage/this.slamsCastsTotal;
+    if(this.castTotals.slam > 0) {
+      damagePerCastObject.slam = this.damage.slam/this.damageEvents.slam;
     }
-    if(this.whirlwindCastsTotal > 0) {
-      damagePerCastObject.whirlwind = this.whirlwindDamage/this.whirlwindCastsTotal;
+    if(this.castTotals.whirlwind > 0) {
+      damagePerCastObject.whirlwind = this.damage.whirlwind/this.damageEvents.whirlwind;
     }
-    if(this.executeCasts > 0) {
-      //damagePerCastObject.execute = this.executeDamage/this.executeCasts;
-      damagePerCastObject.execute = 30673.1647;
+    if(this.castTotals.execute > 0) {
+      damagePerCastObject.execute = this.damage.execute/this.damageEvents.execute;
     }
-    console.log(damagePerCastObject,this.executeDamage,this.executeCasts);
+    // console.log(damagePerCastObject,this.damage.execute,this.castTotals.execute);
     return damagePerCastObject;
   }
 
-  _calculateExecutePotentialDPS() {
+  // calculates a delta between the damage gained during execute from spells that did damage
+  // (MS/Slam/WW) and damage gained by using execute in place of MS/Slam/WW
+  // uses a number of "Hits" because damage is only gained on hits not on casts
+  // assumes all executes would have hit
+  _calculateExecutePotentialDamageLost() {
     const damages = this._damagePerCast();
     const executes = this._unusedExecutes();
 
-    const improperDamage = this.mortalStrikesCastsDuringExecute * damages.mortalStrike +
-                           this.slamsCastsDuringExecute * damages.slam +
-                           this.whirlwindCastsDuringExecute * damages.whirlwind +
-                           this.whirlwindCastsDuringExecuteCrushingAssault * damages.whirlwind;
+    const { mortalStrikeHits,whirlwindHits,whirlwindCrushingAssaultHits,slamHits } = this.castsDuringExecute;
+
+    // all the damage lost due to using MS/Slam/WW
+    const improperDamage = mortalStrikeHits * damages.mortalStrike +
+                           slamHits * damages.slam +
+                           whirlwindHits * damages.whirlwind +
+                           whirlwindCrushingAssaultHits * damages.whirlwind;
+
+    // estimated damage done by unused executes
     const executeDamage = executes * damages.execute;
 
-    const deltaDPS = (executeDamage - improperDamage)/this.owner.fightDuration*1000;
-    console.log(deltaDPS);
-    return deltaDPS;
+    const deltaDamage = executeDamage - improperDamage;
+    // console.log(deltaDamage);
+    return deltaDamage;
   }
 
   statistic() {
-    const dpsLost = formatNumber(this._calculateExecutePotentialDPS());
-    console.log(this.eventArray);
+    const damageLost = formatNumber(this._calculateExecutePotentialDamageLost());
+    
+    console.log(this.eventArray, this.castTotals, this.castsDuringExecute, this.damage, this.damageEvents);
     return (
       <StatisticsListBox
-        title={<><SpellIcon id={SPELLS.EXECUTE.id} /> Unused Executes </>}
+        title={<><SpellIcon id={SPELLS.EXECUTE.id} /> Execute Phase </>}
         tooltip={<>
           <SpellLink id={SPELLS.EXECUTE.id} /> needs to be prioritized over<br />
           <SpellLink id={SPELLS.MORTAL_STRIKE.id} />, 
@@ -229,28 +320,32 @@ class ExecuteOptimize extends Analyzer {
         </>}
       >
         <StatisticListBoxItem
+          title={<><SpellLink id={SPELLS.EXECUTE.id} /> hits</>}
+          value={`${this.damageEvents.execute} `}
+        />
+        <StatisticListBoxItem
           title={<><SpellLink id={SPELLS.MORTAL_STRIKE.id} /> casts</>}
-          value={`${this.mortalStrikesCastsDuringExecute} `}
+          value={`${this.castsDuringExecute.mortalStrike} `}
         />
         {
-          !this.hasFevorOfBattle
+          ( !this.hasFevorOfBattle || this.hasCrushingAssault )
           && 
           <StatisticListBoxItem
             title={<><SpellLink id={SPELLS.SLAM.id} /> casts</>}
-            value={`${this.slamsCastsDuringExecute} `}
+            value={`${this.castsDuringExecute.slam} `}
           />
         }
         <StatisticListBoxItem
           title={<><SpellLink id={SPELLS.WHIRLWIND.id} /> casts</>}
-          value={`${this.whirlwindCastsDuringExecute + this.whirlwindCastsDuringExecuteCrushingAssault} `}
+          value={`${this.castsDuringExecute.whirlwind + this.castsDuringExecute.whirlwindCrushingAssault} `}
         />
-        {/* {
-          dpsLost <= 0 ? null : */}
+        {
+          damageLost <= 0 ? null :
           <StatisticListBoxItem
-            title={<>Estimated DPS Lost</>}
-            value={`${dpsLost} `}
+            title={<>Estimated Damage Lost</>}
+            value={`${damageLost} `}
           />
-        {/* } */}
+        }
       </StatisticsListBox>
     );
   }
